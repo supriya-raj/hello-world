@@ -11,4 +11,4 @@ env:
 install: true
 
 script:
-  - sleep 40
+  - sleep 180

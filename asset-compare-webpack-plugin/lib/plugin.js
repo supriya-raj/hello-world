@@ -24,7 +24,10 @@ class AssetComparePlugin {
       github_access_token: null,
       benchmark_branch: 'master',//The branch to benchmark asset sizes against
       current_branch: env.TRAVIS_BRANCH
-    }, opts || {});
+    });
+    console.log(env);
+
+    //add check for env.travis
   }
 
   computeCurrentAssetSizes(stats) {

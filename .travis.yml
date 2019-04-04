@@ -10,6 +10,8 @@ before_install:
 
 install:
   - npm install --progress=false
+  - cd asset-compare-webpack-plugin npm install --progress=false
+  - cd ..
 
 script:
   - run-p build

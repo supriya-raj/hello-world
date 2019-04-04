@@ -23,6 +23,7 @@
     "webpack": "4.29.6"
   },
   "dependencies": {
+    "@octokit/rest": "16.23.2",
     "lodash": "4.17.11"
   }
 }

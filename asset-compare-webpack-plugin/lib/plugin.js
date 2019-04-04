@@ -1,4 +1,13 @@
 const _ = require('lodash');
+const BaseAssetHelper = require('./base_asset_helper');
+
+//Remove this later
+_.assign(process.env, {
+  TRAVIS: 'true',
+  TRAVIS_REPO_SLUG: 'supriya-raj/hello-world',
+  TRAVIS_BRANCH: 'master'
+});
+//
 
 const IGNORE_EXTENSIONS = /^(gz|map|jpe?g|png|gif|svg|woff2?|ico|ttf|eot|json)$/i;
 const env = process.env;
@@ -22,15 +31,49 @@ class AssetComparePlugin {
   constructor(opts) {
     _.assign(this, {
       github_access_token: null,
-      benchmark_branch: 'master',//The branch to benchmark asset sizes against
-      current_branch: env.TRAVIS_BRANCH
+      user: null,
+      repo: null,
+      current_branch: null,
+      base_branch: 'master',//The branch to benchmark asset sizes against
+      gist_id: null,
+      compilation: null
     });
-    console.log(env);
 
-    //add check for env.travis
+    if(env.TRAVIS === 'true') {
+      let repo_slug = env.TRAVIS_REPO_SLUG.split('/'),
+        user = repo_slug[0],
+        repo = repo_slug.slice(1).join('/');
+
+      _.assign(this, {
+        current_branch: env.TRAVIS_BRANCH,
+        user,
+        repo,
+        github_access_token: env.GITHUB_ACCESS_TOKEN
+      })
+    }
+
+    _.assign(this, opts);
   }
 
-  computeCurrentAssetSizes(stats) {
+  log(message, type = 'info') {
+    let _logger = console.log;
+    //compilation instance available
+    if(this.compilation) {
+      if(type === 'warning') {
+        _logger = compilation.warnings.push;
+      } else if(type === 'error') {
+        _logger = compilation.errors.push;
+      }
+    } else if(type === 'warning') {
+      _logger = console.warn;
+    } else if(type === 'error') {
+      _logger = console.error;
+    }
+
+    _logger('Asset Compare Plugin:'+ message);
+  }
+
+  _computeCurrentAssetSizes(stats) {
     return stats.assets.reduce((assets, asset) => {
       if(!shouldIgnoreFile(asset.name)) {
         assets.push({
@@ -43,38 +86,59 @@ class AssetComparePlugin {
     }, []);
   }
 
-  apply(compiler) {
-    var afterCompilation = (stats, callback) => {
-      stats = stats.toJson();
+  _afterCompilation(stats, callback) {
+    this.compilation = stats.compilation;
+    stats = stats.toJson();
 
-      //if a pr does not exist against the current branch, exit
-      if(stats.errors.length) {
-        return;
-      }
-
-      let current_assets = this.computeCurrentAssetSizes(stats),
-        base_assets;
-
-      if(this.current_branch === this.benchmark_branch) {
-        //update stats
-      } else {
-        base_assets = []//get base assets here
-        //compare
-        //update comment
-      }
+    if(stats.errors.length) {
+      this.log('There are errors present in your compilation. Aborting!', 'warning');
+      return;
     }
 
-    //if env.TRAVIS === 'true'
-    if(true) {
-      if (compiler.hooks) {
-        const pluginOptions = {
-          name: 'AssetComparePlugin',
-          stage: Infinity
-        };
-        compiler.hooks.done.tapAsync(pluginOptions, afterCompilation);
-      } else {
-        console.warn('Asset Compare Plugin is only supported with webpack4 !!');
-      }
+    let current_assets,
+      base_assets,
+      base_asset_helper = new BaseAssetHelper({
+        github_access_token: this.github_access_token,
+        gist_id: this.gist_id,
+        log: this.log.bind(this)
+      }),
+      current_asset_helper = null;
+        //       user: this.user,
+        // repo: this.repo,
+        // github_access_token: this.github_access_token,
+        // branch: this.base_branch,
+        // log: this.log
+
+    current_assets = this._computeCurrentAssetSizes(stats);
+
+    if(this.current_branch === this.base_branch) {
+      base_asset_helper.updateContent(current_assets).then(callback);
+    } else {
+      base_assets = []//get base assets here
+      //compare
+      //update comment
+    }
+  }
+
+  apply(compiler) {
+    if(env.TRAVIS !== 'true') {
+      //exit silently
+      return;
+    }
+
+    if(!this.user || !this.repo || !this.current_branch || !this.github_access_token || !this.gist_id){
+      this.log("One or more required github parameters are missing. Aborting!", "warning");
+      return;
+    };
+
+    if (compiler.hooks) {
+      const pluginOptions = {
+        name: 'AssetComparePlugin',
+        stage: Infinity
+      };
+      compiler.hooks.done.tapAsync(pluginOptions, this._afterCompilation.bind(this));
+    } else {
+      this.log('Asset Compare Plugin is only supported with webpack4 !!', 'warning');
     }
   }
 }

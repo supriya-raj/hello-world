@@ -1,0 +1,28 @@
+{
+  "name": "asset-compare-webpack-plugin",
+  "version": "1.0.0",
+  "description": "A webpack plugin that compares the generated asset sizes against those of master as part of travis CI and comments the comparison table on the pr",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/supriya-raj/asset-compare-webpack-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/supriya-raj/asset-compare-webpack-plugin/issues"
+  },
+  "homepage": "https://github.com/supriya-raj/asset-compare-webpack-plugin",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Supriya S <supriyaraj47@gmail.com>",
+  "license": "ISC",
+  "peerDependencies": {
+    "webpack": "4"
+  },
+  "devDependencies": {
+    "webpack": "4.29.6"
+  },
+  "dependencies": {
+    "lodash": "4.17.11"
+  }
+}

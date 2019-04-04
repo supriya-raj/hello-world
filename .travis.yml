@@ -6,9 +6,6 @@ node_js:
   - 8.9.1
 
 before_install:
-  - cp .netrc ~
-  - chmod 600 .netrc
-  - sed -i "s/\$GITHUB_PERSONAL_TOKEN/${GITHUB_PERSONAL_TOKEN}/g" ~/.netrc
   - npm install --progress=false -g npm-run-all
 
 install:
@@ -20,5 +17,4 @@ script:
 cache:
   apt: true
   directories:
-    - vendor
     - node_modules

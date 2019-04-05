@@ -1,21 +1,7 @@
-let getBaseAssetHelpers = (gist_id, git_access_token) => {
-  let octokit = new Octokit({
-    auth: git_access_token
-  });
-
-  let getBaseAssetData = () => {
-
-  };
-
-  let updateBaseAssetData = () => {
-
-  };
-};
-
 const _ = require('lodash');
 const Octokit = require('@octokit/rest');
 
-class BaseAssetHelper {
+class BaseAssetsHelper {
   constructor(opts) {
     _.assign(this, {
       gist_id: opts.gist_id,
@@ -48,11 +34,10 @@ class BaseAssetHelper {
         }
       }
     })
-    .then(response => response)
     .catch((err) => {
       this.log(err, 'warning');
     })
   }
 
 }
-module.exports = BaseAssetHelper;
+module.exports = BaseAssetsHelper;

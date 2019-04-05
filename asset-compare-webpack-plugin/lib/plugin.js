@@ -1,16 +1,19 @@
 const _ = require('lodash');
-const BaseAssetHelper = require('./base_asset_helper');
+const BaseAssetsHelper = require('./base_assets_helper');
+const RevisedAssetsHelper = require('./revised_assets_helper');
+const compareAssetSizes = require('./util').compareAssetSizes;
+
+const IGNORE_EXTENSIONS = /^(gz|map|jpe?g|png|gif|svg|woff2?|ico|ttf|eot|json)$/i;
+const env = process.env;
 
 //Remove this later
 _.assign(process.env, {
   TRAVIS: 'true',
   TRAVIS_REPO_SLUG: 'supriya-raj/hello-world',
-  TRAVIS_BRANCH: 'master'
+  TRAVIS_BRANCH: 'master',
+  TRAVIS_COMMIT: '4fa10bffc58ebc38591d32aaa5f2eb42955992c6',
 });
 //
-
-const IGNORE_EXTENSIONS = /^(gz|map|jpe?g|png|gif|svg|woff2?|ico|ttf|eot|json)$/i;
-const env = process.env;
 
 var shouldIgnoreFile = function(str) {
   str = str.replace(/\?.*/, '');
@@ -18,22 +21,15 @@ var shouldIgnoreFile = function(str) {
   var ext = split.pop();
   return IGNORE_EXTENSIONS.test(ext);
 };
-var getDisplayableFileSize = function(bytes, decimals = 2) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
-
 class AssetComparePlugin {
   constructor(opts) {
     _.assign(this, {
       github_access_token: null,
-      user: null,
+      owner: null,
       repo: null,
       current_branch: null,
+      commit_sha: null,
+      build_url: null,
       base_branch: 'master',//The branch to benchmark asset sizes against
       gist_id: null,
       compilation: null
@@ -41,13 +37,15 @@ class AssetComparePlugin {
 
     if(env.TRAVIS === 'true') {
       let repo_slug = env.TRAVIS_REPO_SLUG.split('/'),
-        user = repo_slug[0],
+        owner = repo_slug[0],
         repo = repo_slug.slice(1).join('/');
 
       _.assign(this, {
         current_branch: env.TRAVIS_BRANCH,
-        user,
+        owner,
         repo,
+        commit_sha: env.TRAVIS_COMMIT,
+        build_url: env.TRAVIS_BUILD_WEB_URL,
         github_access_token: env.GITHUB_ACCESS_TOKEN
       })
     }
@@ -60,9 +58,9 @@ class AssetComparePlugin {
     //compilation instance available
     if(this.compilation) {
       if(type === 'warning') {
-        _logger = compilation.warnings.push;
+        _logger = this.compilation.warnings.push.bind(this.compilation.warnings);
       } else if(type === 'error') {
-        _logger = compilation.errors.push;
+        _logger = this.compilation.errors.push.bind(this.compilation.errors);
       }
     } else if(type === 'warning') {
       _logger = console.warn;
@@ -73,12 +71,11 @@ class AssetComparePlugin {
     _logger('Asset Compare Plugin:'+ message);
   }
 
-  _computeCurrentAssetSizes(stats) {
+  _computeRevisedAssetSizes(stats) {
     return stats.assets.reduce((assets, asset) => {
       if(!shouldIgnoreFile(asset.name)) {
         assets.push({
           name: asset.chunkNames.join(' ') || asset.name,
-          display_size: getDisplayableFileSize(asset.size),
           size: asset.size
         });
       };
@@ -91,33 +88,47 @@ class AssetComparePlugin {
     stats = stats.toJson();
 
     if(stats.errors.length) {
-      this.log('There are errors present in your compilation. Aborting!', 'warning');
+      this.log('There are errors present in your compilation! Aborting...', 'warning');
       return;
     }
 
-    let current_assets,
+    let revised_assets,
       base_assets,
-      base_asset_helper = new BaseAssetHelper({
+      base_assets_helper = new BaseAssetsHelper({
         github_access_token: this.github_access_token,
         gist_id: this.gist_id,
         log: this.log.bind(this)
       }),
-      current_asset_helper = null;
-        //       user: this.user,
-        // repo: this.repo,
-        // github_access_token: this.github_access_token,
-        // branch: this.base_branch,
-        // log: this.log
+      revised_assets_helper = new RevisedAssetsHelper({
+        owner: this.owner,
+        repo: this.repo,
+        github_access_token: this.github_access_token,
+        commit_sha: this.commit_sha,
+        status_url: this.build_url,
+        log: this.log
+      }),
+      promises = [];
 
-    current_assets = this._computeCurrentAssetSizes(stats);
+    revised_assets = this._computeRevisedAssetSizes(stats);
 
-    if(this.current_branch === this.base_branch) {
-      base_asset_helper.updateContent(current_assets).then(callback);
-    } else {
-      base_assets = []//get base assets here
-      //compare
-      //update comment
-    }
+    base_assets_helper.getContent().then((result) => {
+      base_assets = result;
+      if(base_assets) {
+        let {table, summary} = compareAssetSizes(
+          {name: this.base_branch, stats: base_assets},
+          {name: this.base_branch === this.current_branch ? `${this.base_branch}-revised` :this.current_branch, stats: revised_assets}
+        );
+        this.log(table);
+        promises.push(revised_assets_helper.updateStatus(summary));
+      }
+      if(this.base_branch === this.current_branch) {
+        promises.push(base_assets_helper.updateContent(revised_assets));
+      }
+      if(!base_assets && this.base_branch !== this.current_branch) {
+        this.log(`Stats for branch ${this.base_branch} missing! Aborting...`, 'warning');
+      }
+      Promise.all(promises).then(callback);
+    });
   }
 
   apply(compiler) {
@@ -126,7 +137,7 @@ class AssetComparePlugin {
       return;
     }
 
-    if(!this.user || !this.repo || !this.current_branch || !this.github_access_token || !this.gist_id){
+    if(!this.owner || !this.repo || !this.current_branch || !this.github_access_token || !this.gist_id){
       this.log("One or more required github parameters are missing. Aborting!", "warning");
       return;
     };

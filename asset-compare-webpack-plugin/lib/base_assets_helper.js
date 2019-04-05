@@ -5,6 +5,8 @@ class BaseAssetsHelper {
   constructor(opts) {
     _.assign(this, {
       gist_id: opts.gist_id,
+      repo: opts.repo,
+      base_branch: opts.base_branch,
       octokit: new Octokit({
         auth: opts.github_access_token
       }),
@@ -12,12 +14,16 @@ class BaseAssetsHelper {
     });
   }
 
+  _getFileName() {
+    return `${this.repo}-${this.base_branch}-webpack-build-sizes.json`;
+  }
+
   getContent() {
     return this.octokit.gists.get({
       gist_id: this.gist_id
     })
     .then((response) => {
-      return JSON.parse(response.data.files['webpack-build-sizes.json'].content);
+      return JSON.parse(response.data.files[this._getFileName()].content);
     })
     .catch((err) => {
       this.log(err, 'warning');
@@ -29,7 +35,7 @@ class BaseAssetsHelper {
       gist_id: this.gist_id,
       description: "Update base branch asset sizes",
       files: {
-        "webpack-build-sizes.json": {
+        [this._getFileName()]: {
           content: JSON.stringify(new_content)
         }
       }

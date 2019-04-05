@@ -22,7 +22,8 @@ class RevisedAssetsHelper {
       sha: this.commit_sha,
       state: new_status,
       target_url: this.status_url,
-      description: new_status === "error"? "The sizes of one or more assets have increased by at least 5%": "The asset sizes haven't changed significantly",
+      description: new_status === "error"? "The sizes of one or more assets have increased by at least 5%": "None of the asset sizes have increased by more than 5%",
+      context: "asset-sizes"
     })
     .catch((err) => {
       this.log(err, 'warning');

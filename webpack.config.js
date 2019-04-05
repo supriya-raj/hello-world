@@ -14,7 +14,7 @@ module.exports = {
   },
   plugins: [
     new AssetComparePlugin({
-      gist_id: '76d332abd7a619d5edf531f679b7ba3d'
+      gist_id: '3372502a4187b06e810e07f1b20b6d24'
     })
   ]
 };

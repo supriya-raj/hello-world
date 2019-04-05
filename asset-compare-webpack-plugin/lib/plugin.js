@@ -6,15 +6,6 @@ const compareAssetSizes = require('./util').compareAssetSizes;
 const IGNORE_EXTENSIONS = /^(gz|map|jpe?g|png|gif|svg|woff2?|ico|ttf|eot|json)$/i;
 const env = process.env;
 
-//Remove this later
-_.assign(process.env, {
-  TRAVIS: 'true',
-  TRAVIS_REPO_SLUG: 'supriya-raj/hello-world',
-  TRAVIS_BRANCH: 'master',
-  TRAVIS_COMMIT: '4fa10bffc58ebc38591d32aaa5f2eb42955992c6',
-});
-//
-
 var shouldIgnoreFile = function(str) {
   str = str.replace(/\?.*/, '');
   var split = str.split('.');
@@ -97,6 +88,8 @@ class AssetComparePlugin {
       base_assets_helper = new BaseAssetsHelper({
         github_access_token: this.github_access_token,
         gist_id: this.gist_id,
+        repo: this.repo,
+        base_branch: this.base_branch,
         log: this.log.bind(this)
       }),
       revised_assets_helper = new RevisedAssetsHelper({
@@ -127,7 +120,7 @@ class AssetComparePlugin {
       if(!base_assets && this.base_branch !== this.current_branch) {
         this.log(`Stats for branch ${this.base_branch} missing! Aborting...`, 'warning');
       }
-      Promise.all(promises).then(callback);
+      Promise.all(promises).then(() => {callback()});
     });
   }
 

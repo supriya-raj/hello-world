@@ -5,10 +5,19 @@ language: node_js
 node_js:
   - 8.9.1
 
-env:
-  - CXX=g++-4.8
+before_install:
+  - npm install --progress=false -g npm-run-all
 
-install: true
+install:
+  - npm install --progress=false
+  - cd asset-compare-webpack-plugin
+  - npm install --progress=false
+  - cd ..
 
 script:
-  - sleep 60
+  - run-p build
+
+cache:
+  apt: true
+  directories:
+    - node_modules

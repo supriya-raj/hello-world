@@ -1,10 +1,11 @@
 const _ = require('lodash');
 const chalk = require('chalk');
-const Table = require('tty-table');
+const ConsoleTable = require('tty-table');
+const MarkdownTable = require('markdown-table');
 
 const ASSET_SIZE_PERCENT_CHANGE_THRESHOLD = 5;
 
-var _getDisplayableSize = function(bytes, decimals = 3) {
+var _getDisplayableSize = (bytes, decimals = 3) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
@@ -23,6 +24,67 @@ var _mergeStats = (old_stats, revised_stats) => {
   revised_stats.forEach(_storeStats.bind(null,'revised'));
 
   return stats;
+};
+
+var _getConsoleTable = (old, revised, stats) => {
+    let table_header = [
+      {
+        value : "Chunk Name",
+        headerColor : "cyan",
+        color: "white",
+        align: "left",
+        paddingLeft : 5,
+        width : 40
+      },
+      {
+        value : old.name,
+        headerColor : "cyan",
+        color: "white",
+        align: "left",
+        width : 20
+      },
+      {
+        value : revised.name,
+        headerColor : "cyan",
+        color: "white",
+        align: "left",
+        width : 20
+      },
+      {
+        value : '% change in size',
+        headerColor : "cyan",
+        color: "white",
+        align: "left",
+        width : 20,
+        formatter: (value) => {
+          var str = value.toFixed(2) + "%";
+          if(value > 5){
+            str = chalk.red(str);
+          }
+          return str;
+        }
+      },
+
+    ],
+    table_rows = stats,
+    table_opts = {};
+
+    return ConsoleTable(table_header, table_rows, table_opts).render();
+}
+
+var _getMarkdownTable = (old, revised, stats) => {
+  let table_header = ['**Chunk Name**', `**${old.name}**`, `**${revised.name}**`, '**% change in size**'],
+    table_rows = stats.map((stat) => {
+      if(stat[3] > ASSET_SIZE_PERCENT_CHANGE_THRESHOLD) {
+        stat[3] = `**${stat[3]}**`;
+      };
+      return stat;
+    });
+
+    return MarkdownTable([
+      table_header,
+      ...table_rows
+    ]);
 };
 
 var compareAssetSizes = (old, revised) => {
@@ -61,51 +123,9 @@ var compareAssetSizes = (old, revised) => {
       stat_rows.push(stat_row);
     });
 
-    //Generate table
-    let table_header = [
-      {
-        value : "Chunk Name",
-        headerColor : "cyan",
-        color: "white",
-        align: "left",
-        paddingLeft : 5,
-        width : 40
-      },
-      {
-        value : old.name,
-        headerColor : "cyan",
-        color: "white",
-        align: "left",
-        width : 20
-      },
-      {
-        value : revised.name,
-        headerColor : "cyan",
-        color: "white",
-        align: "left",
-        width : 20
-      },
-      {
-        value : '% change in size',
-        headerColor : "cyan",
-        color: "white",
-        align: "left",
-        width : 20,
-        formatter: (value) => {
-          var str = value.toFixed(2) + "%";
-          if(value > 5){
-            str = chalk.white.bgRed(str);
-          }
-          return str;
-        }
-      },
-
-    ],
-    table_rows = stat_rows,
-    table_opts = {};
-
     return {
-      table: Table(table_header, table_rows, table_opts).render(),
+      console_table: _getConsoleTable(old, revised, stat_rows),
+      markdown_table: _getMarkdownTable(old, revised, stat_rows),
       summary: asset_size_inc_count > 0? 'error': 'success'
     }
 };

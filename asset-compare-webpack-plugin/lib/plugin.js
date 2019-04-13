@@ -5,7 +5,7 @@ const compareAssetSizes = require('./util').compareAssetSizes;
 
 const IGNORE_EXTENSIONS = /^(gz|map|jpe?g|png|gif|svg|woff2?|ico|ttf|eot|json)$/i;
 const env = process.env;
-
+console.log(env);
 var shouldIgnoreFile = function(str) {
   str = str.replace(/\?.*/, '');
   var split = str.split('.');
@@ -107,12 +107,13 @@ class AssetComparePlugin {
     base_assets_helper.getContent().then((result) => {
       base_assets = result;
       if(base_assets) {
-        let {table, summary} = compareAssetSizes(
+        let {console_table, markdown_table, summary} = compareAssetSizes(
           {name: this.base_branch, stats: base_assets},
           {name: this.base_branch === this.current_branch ? `${this.base_branch}-revised` :this.current_branch, stats: revised_assets}
         );
-        this.log(table);
+        this.log(console_table);
         promises.push(revised_assets_helper.updateStatus(summary));
+        //promises.push(revised_assets_helper.updatePRDescription(markdown_table));
       }
       if(this.base_branch === this.current_branch) {
         promises.push(base_assets_helper.updateContent(revised_assets));
